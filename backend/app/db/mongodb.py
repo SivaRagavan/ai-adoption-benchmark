@@ -1,6 +1,7 @@
 import os
 from pymongo import MongoClient, ASCENDING
 from pymongo.database import Database
+from pymongo.errors import OperationFailure
 
 MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017/")
 DATABASE_NAME = os.getenv("MONGODB_DB", "aicompass")
@@ -14,9 +15,16 @@ def connect_db() -> None:
     client = MongoClient(MONGODB_URL)
     db = client[DATABASE_NAME]
 
-    db.users.create_index([("email", ASCENDING)], unique=True)
-    db.assessments.create_index([("owner_id", ASCENDING)])
-    db.assessments.create_index([("invite_token", ASCENDING)], unique=True)
+    try:
+        db.users.create_index([("email", ASCENDING)], unique=True)
+        db.assessments.create_index([("owner_id", ASCENDING)])
+        db.assessments.create_index([("invite_token", ASCENDING)], unique=True)
+    except OperationFailure as exc:
+        if exc.code == 13:
+            raise RuntimeError(
+                "MongoDB authentication failed. Update MONGODB_URL with credentials."
+            ) from exc
+        raise
 
 
 def close_db() -> None:
